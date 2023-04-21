@@ -58,10 +58,6 @@ const app = express();
 app.use(cors());
 app.use('/blogs', express.static('blogs'));
 
-// Read the blog index file to get the mapping of index numbers to blog names
-const blogIndexData = fs.readFileSync('blogs/blog-index.json');
-const blogIndex = JSON.parse(blogIndexData);
-
 // Define route to retrieve all blog posts
 app.get('/blog-posts', (req, res) => {
   try {
