@@ -100,6 +100,10 @@ app.get('/blog-posts/:id', (req, res) => {
   }
 });
 
+app.get('*', (req, res) => {
+  res.send('OK');
+});
+
 // Start the server
 app.listen(3000, () => {
   console.log('Server started on port 3000.');
