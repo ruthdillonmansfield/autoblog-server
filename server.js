@@ -23,7 +23,7 @@ const app = express();
 app.use(cors());
 
 
-app.get('/generate-blog-post', async (req, res) => {
+app.get('/generate', async (req, res) => {
   try {
     await generateAndSaveBlogPost();
     console.log("Success!")
