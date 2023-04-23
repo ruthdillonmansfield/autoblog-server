@@ -122,23 +122,42 @@ const jsonString = JSON.stringify(blogPost, null, 2);
 // Base64-encode the JSON string
 const base64EncodedContent = Buffer.from(jsonString).toString('base64');
 
-console.log("About to createOrUpdateFileResponse");
+let sha;
 
-const createOrUpdateFileResponse = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+try {
+  const getFileResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+    owner: repoOwner,
+    repo: repoName,
+    path: filePath,
+    ref: branch
+  });
+
+  sha = getFileResponse.data.sha;
+} catch (error) {
+  if (error.status !== 404) {
+    throw error;
+  }
+}
+
+const createOrUpdateFileRequest = {
   owner: repoOwner,
   repo: repoName,
   path: filePath,
   message: `Add new blog post: ${outputTitle}`,
   content: base64EncodedContent,
-  branch: branch,
-});
+  branch: branch
+};
+
+if (sha) {
+  createOrUpdateFileRequest.sha = sha;
+}
+
+const createOrUpdateFileResponse = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', createOrUpdateFileRequest);
+
 
 console.log(`Successfully created/updated ${slug}.json in the ${repoName} repository.`);
 
 // ... (rest of the code remains the same)
-
-
-    console.log(`Successfully created/updated ${slug}.md in the ${repoName} repository.`);
 
   } catch (error) {
     console.error('Error while generating and saving the blog post:', error);
