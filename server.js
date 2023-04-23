@@ -22,6 +22,18 @@ const branch = 'main';
 const app = express();
 app.use(cors());
 
+
+app.get('/generate-blog-post', async (req, res) => {
+  try {
+    await generateAndSaveBlogPost();
+    console.log("Success!")
+    res.status(200).json({ message: 'Blog post generated and saved successfully.' });
+  } catch (error) {
+    console.error('Error while generating and saving the blog post:', error);
+    res.status(500).json({ message: 'Failed to generate and save blog post.', error: error.message });
+  }
+});
+
 async function generateAndSaveBlogPost() {
   try {
     // Fetch the last 20 blog titles from the front-end repository
