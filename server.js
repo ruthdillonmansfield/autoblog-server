@@ -68,7 +68,9 @@ async function generateAndSaveBlogPost() {
     // Generate a unique blog post using the OpenAI API
     // const prompt = `Write a unique blog post about the same subject matter as the following 20 blog titles, but make sure it is different from them: ${last20Titles.join(', ')}\n\nTitle: {{title}}\nDate: {{date}}\nMeta Description: {{meta_description}}\nBlog Contents: {{blog_contents}}\n\nThe Blog Contents value should be an HTML string representing an insightful, well-written and confident blog structured with headings.`;
 
-    const promptTitle = `Come up with one SEO-friendly blog title that is similar to these: ${last20Titles.join(', ')}`
+    // const promptTitle = `Come up with one SEO-friendly blog title that is similar to these: ${last20Titles.join(', ')}`
+
+    const promptTitle = `Come up with one SEO-friendly blog title`
 
     const openAITitleResponse = await openai.createCompletion({
       model: "text-davinci-003",
@@ -110,6 +112,7 @@ async function generateAndSaveBlogPost() {
     // Create a new object with the required keys and values
     const blogPost = {
       title: outputTitle,
+      slug: outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-"),
       date: new Date().toISOString(),
       tags: [], // You can add tags here if required
       category: "", // You can add a category here if required
