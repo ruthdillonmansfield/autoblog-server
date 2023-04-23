@@ -122,6 +122,8 @@ const jsonString = JSON.stringify(blogPost, null, 2);
 // Base64-encode the JSON string
 const base64EncodedContent = Buffer.from(jsonString).toString('base64');
 
+console.log("About to createOrUpdateFileResponse");
+
 const createOrUpdateFileResponse = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
   owner: repoOwner,
   repo: repoName,
