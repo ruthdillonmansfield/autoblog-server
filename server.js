@@ -80,7 +80,7 @@ async function generateAndSaveBlogPost() {
 
     const outputTitle = openAITitleResponse.data.choices[0].text.replace(/^[\n\s"]+|[\n\s"]+$/g, '');
 
-    console.log(outputTitle);
+    console.log(`The title GPT has come up with is ${outputTitle}`);
 
 
     const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with HTML, and including headings and paragraphs. The blog must be based on this title: ${outputTitle}`;
