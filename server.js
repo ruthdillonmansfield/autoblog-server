@@ -100,7 +100,7 @@ async function generateAndSaveBlogPost() {
 
     // ... (previous code remains the same)
 
-    const slug = outputTitle.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, "-");
+    const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
 
     console.log(`slug is ${slug}`);
 
