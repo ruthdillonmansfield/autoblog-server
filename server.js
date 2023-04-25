@@ -16,7 +16,7 @@ const openai = new OpenAIApi(configuration);
 const octokit = new Octokit({ auth: process.env.OCTOKIT_KEY });
 
 const repoOwner = 'ruthdillonmansfield';
-const repoName = 'autoblog_frontend';
+const repoName = 'autoblog-front-end-next';
 const branch = 'main';
 
 const app = express();
@@ -34,133 +34,144 @@ app.get('/generate', async (req, res) => {
   }
 });
 
-async function generateAndSaveBlogPost() {
-  try {
-    // Fetch the last 20 blog titles from the front-end repository
-    // Fetch the last 20 blog titles from the front-end repository
-    const listFilesResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+async function fetchLast20Files() {
+  const listFilesResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+    owner: repoOwner,
+    repo: repoName,
+    path: 'posts',
+    ref: branch,
+  });
+
+  return listFilesResponse.data.slice(-20);
+}
+
+async function fetchLast20Titles(last20Files) {
+  const last20TitlesPromises = last20Files.map(async (file) => {
+    const fileContentResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
       owner: repoOwner,
       repo: repoName,
-      path: 'src/blogs',
+      path: file.path,
       ref: branch,
     });
 
-    const last20Files = listFilesResponse.data.slice(-20);
+    const fileContent = Buffer.from(fileContentResponse.data.content, 'base64').toString();
 
-    // Fetch the content of each file and parse the JSON to get the titles
-    const last20TitlesPromises = last20Files.map(async (file) => {
-      const fileContentResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-        owner: repoOwner,
-        repo: repoName,
-        path: file.path,
-        ref: branch,
-      });
+    // Extract the title from the Markdown front matter
+    const titleMatch = fileContent.match(/title:\s*['"](.+?)['"]/);
+    const title = titleMatch ? titleMatch[1] : 'Untitled';
 
-      const fileContent = Buffer.from(fileContentResponse.data.content, 'base64').toString();
-      const json = JSON.parse(fileContent);
-      return json.title;
-    });
+    return title;
+  });
 
-    const last20Titles = await Promise.all(last20TitlesPromises);
-
-    console.log(last20Titles);
-
-    // Generate a unique blog post using the OpenAI API
-    // const prompt = `Write a unique blog post about the same subject matter as the following 20 blog titles, but make sure it is different from them: ${last20Titles.join(', ')}\n\nTitle: {{title}}\nDate: {{date}}\nMeta Description: {{meta_description}}\nBlog Contents: {{blog_contents}}\n\nThe Blog Contents value should be an HTML string representing an insightful, well-written and confident blog structured with headings.`;
-
-    // const promptTitle = `Come up with one SEO-friendly blog title that is similar to these: ${last20Titles.join(', ')}`
-
-    const promptTitle = `Come up with one SEO-friendly blog title`
-
-    const openAITitleResponse = await openai.createCompletion({
-      model: "text-davinci-003",
-      prompt: promptTitle,
-      temperature: 0.9,
-      max_tokens: 750,
-      top_p: 1.0,
-    });
-
-    const outputTitle = openAITitleResponse.data.choices[0].text.replace(/^[\n\s"]+|[\n\s"]+$/g, '');
-
-    console.log(`The title GPT has come up with is ${outputTitle}`);
+  return await Promise.all(last20TitlesPromises);
+}
 
 
-    const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with HTML, and including headings and paragraphs. The blog must be based on this title: ${outputTitle}`;
+async function generateTitle() {
+  const openAITitleResponse = await openai.createCompletion({
+    model: "text-davinci-003",
+    prompt: 'Come up with one SEO-friendly blog title',
+    temperature: 0.9,
+    max_tokens: 750,
+    top_p: 1.0,
+  });
 
-    const openaiContentsResponse = await openai.createCompletion({
-      model: "text-davinci-003",
-      prompt: promptContents,
-      temperature: 0.7,
-      max_tokens: 750,
-      top_p: 1.0,
-    });
+  return openAITitleResponse.data.choices[0].text.replace(/^[\n\s"]+|[\n\s"]+$/g, '');
+}
 
-    // Extract JSON object from the generated text
-    const outputContent = openaiContentsResponse.data.choices[0].text;
+async function generateContent(title) {
+  const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with HTML, and including headings and paragraphs. The blog must be based on this title: ${title}`;
 
-    console.log(outputContent);
+  const openaiContentsResponse = await openai.createCompletion({
+    model: "text-davinci-003",
+    prompt: promptContents,
+    temperature: 0.7,
+    max_tokens: 750,
+    top_p: 1.0,
+  });
 
-    // ... (previous code remains the same)
+  return openaiContentsResponse.data.choices[0].text;
+}
 
-    const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
+async function saveBlogPost(filePath, markdownString, outputTitle) {
+  const base64EncodedContent = Buffer.from(markdownString).toString('base64');
 
-    console.log(`slug is ${slug}`);
+  let sha;
 
-    // Save the blog post to the front-end repository
-    const filePath = `src/blogs/${slug}.json`;
-
-    // Create a new object with the required keys and values
-    const blogPost = {
-      title: outputTitle,
-      slug: outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-"),
-      date: new Date().toISOString(),
-      tags: [], // You can add tags here if required
-      category: "", // You can add a category here if required
-      contents: outputContent
-    };
-
-    // Convert the object to a JSON string
-    const jsonString = JSON.stringify(blogPost, null, 2);
-
-    // Base64-encode the JSON string
-    const base64EncodedContent = Buffer.from(jsonString).toString('base64');
-
-    let sha;
-
-    try {
-      const getFileResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-        owner: repoOwner,
-        repo: repoName,
-        path: filePath,
-        ref: branch
-      });
-
-      sha = getFileResponse.data.sha;
-    } catch (error) {
-      if (error.status !== 404) {
-        throw error;
-      }
-    }
-
-    const createOrUpdateFileRequest = {
+  try {
+    const getFileResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
       owner: repoOwner,
       repo: repoName,
       path: filePath,
-      message: `Add new blog post: ${outputTitle}`,
-      content: base64EncodedContent,
-      branch: branch
-    };
+      ref: branch
+    });
 
-    if (sha) {
-      createOrUpdateFileRequest.sha = sha;
+    sha = getFileResponse.data.sha;
+  } catch (error) {
+    if (error.status !== 404) {
+      throw error;
     }
+  }
 
-    const createOrUpdateFileResponse = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', createOrUpdateFileRequest);
+  const createOrUpdateFileRequest = {
+    owner: repoOwner,
+    repo: repoName,
+    path: filePath,
+    message: `Add new blog post: ${outputTitle}`,
+    content: base64EncodedContent,
+    branch: branch
+  };
+
+  if (sha) {
+    createOrUpdateFileRequest.sha = sha;
+  }
+
+  await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', createOrUpdateFileRequest);
+}
+
+async function generateAndSaveBlogPost() {
+  try {
+    const last20Files = await fetchLast20Files();
+    console.log("Fetched 20 files.");
+
+    const last20Titles = await fetchLast20Titles(last20Files);
+    console.log("Fetched 20 titles: ", last20Titles);
+
+    const outputTitle = await generateTitle();
+    console.log(`Output title is ${outputTitle}`);
+    
+    const outputContent = await generateContent(outputTitle);
+    console.log(`Output content is:`, outputContent);
 
 
-    console.log(`Successfully created/updated ${slug}.json in the ${repoName} repository.`);
+    const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
+    console.log(`Slug is ${slug}`);
 
-    // ... (rest of the code remains the same)
+    // Save the blog post to the front-end repository
+    const filePath = `posts/${slug}.md`;
+
+    // Generate an excerpt (optional)
+    const excerpt = 'Your generated excerpt goes here';
+
+    // Set a cover image path (optional)
+    const coverImagePath = '/assets/blog/dynamic-routing/cover.jpg';
+
+    // Create a Markdown string with the required keys and values
+    const markdownString = `---
+title: "${outputTitle}"
+excerpt: "${excerpt}"
+coverImage: "${coverImagePath}"
+date: "${new Date().toISOString()}"
+ogImage:
+  url: "${coverImagePath}"
+---
+
+${outputContent}
+`;
+
+    await saveBlogPost(filePath, markdownString);
+
+    console.log(`Successfully created/updated ${slug}.md in the ${repoName} repository.`);
 
   } catch (error) {
     console.error('Error while generating and saving the blog post:', error);
