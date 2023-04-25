@@ -80,7 +80,7 @@ async function generateTitle() {
 }
 
 async function generateContent(title) {
-  const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with HTML, and including headings and paragraphs. The blog must be based on this title: ${title}`;
+  const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with markdown, and including headings and paragraphs. The blog must be based on this title: ${title}`;
 
   const openaiContentsResponse = await openai.createCompletion({
     model: "text-davinci-003",
