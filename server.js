@@ -19,6 +19,22 @@ const repoOwner = 'ruthdillonmansfield';
 const repoName = 'autoblog-front-end-next';
 const branch = 'main';
 
+const topics = ["ethics", "metaphysics", "epistemology", "aesthetics", "philosophical logic", "ontology", "metametaphysics", "philosophy of science", "philosophy of religion", "philosophy of language", "philosophy of mind", "philosophy of technology", "ancient philosophy", "bioethics", "philosophy of mathematics", "philosophy of law", "philosophy of time", "philosophy of substance", "modality"]
+
+const approaches = [
+  "Create a beginner's guide to a specific area within this topic.",
+  "Create a beginner's guide to a specific area within this topic.",
+  "Create a beginner's guide to a specific area within this topic.",
+  "Examine a specific argument within this philosophical topic.",
+  "Analyze the views of a particular philosopher on this topic.",
+  "Discuss the historical development of this philosophical school of thought.",
+  "Debate the validity of opposing perspectives on this issue.",
+  "Compare and contrast the key concepts of different philosophical theories.",
+  "Evaluate the implications of a specific philosophical idea within this topic on other disciplines.",
+  "Explain the significance of a specific thought experiment within this topic.",
+  "Critique the strengths and weaknesses of a particular philosophical argument."
+];
+
 const app = express();
 app.use(cors());
 
@@ -66,29 +82,34 @@ async function fetchLast15Titles(last15Files) {
   return await Promise.all(last15TitlesPromises);
 }
 
-
 async function generateTitle(last15Titles) {
+  const randomIndex = Math.floor(Math.random() * topics.length);
+  const topic = topics[randomIndex];
+  const randomIndex2 = Math.floor(Math.random() * approaches.length);
+  const approach = approaches[randomIndex2];
+  
   const titlesList = last15Titles.join('\n');
-  const promptContents = `Generate a unique and compelling blog title within the broad topic of "Science" that is not a repeat of any of the following specific topics covered in these blogs:\n\n${titlesList}\n\nNew title: `;
+  const promptContents = `Generate a unique, specific and compelling blog title within the broad topic of ${topic}. ${approach}. It should be less than 10 words long.`;
   console.log(promptContents);
   
   const openAITitleResponse = await openai.createCompletion({
     model: "text-davinci-003",
     prompt: promptContents,
-    temperature: 0.8,
-    max_tokens: 50, // Reduced max_tokens
+    temperature: 0.9,
+    max_tokens: 40,
     top_p: 1.0,
-  });  
+  });
   const generatedText = openAITitleResponse.data.choices[0].text.trim();
   const title = generatedText.replace(/^New title: /, '').trim(); // Remove the 'New title:' prompt from the generated text
-  return title;
+  const cleanTitle = title.replace(/["]/g, ''); // Remove all quote marks
+  return cleanTitle;
 }
 
 
 async function generateDallePrompt(title) {
   const openAIPromptResponse = await openai.createCompletion({
     model: "text-davinci-003",
-    prompt: `I want to create a fantastic image for a blog post. Your job is to write a prompt for image generation AI tool Dall-E that will create an image suitable for a blog entitled "${title}"`,
+    prompt: `I want to create a fantastic image for a blog post. Your job is to imagine a relevant object or scene and describe it. It must be suitable for a blog entitled "${title}".`,
     temperature: 0.7,
     max_tokens: 30,
     top_p: 1.0,
@@ -97,11 +118,42 @@ async function generateDallePrompt(title) {
   return openAIPromptResponse.data.choices[0].text.trim();
 }
 
+async function generateExcerpt(content) {
+  // Remove headings
+  const contentWithoutHeadings = content.replace(/^#+.+\n/gm, '');
+
+  // Match the first two sentences
+  const sentencesMatch = contentWithoutHeadings.match(/(?:^|\.|\?|\!)\s*([^.?!]+[.?!])/g);
+
+  if (sentencesMatch) {
+    let excerpt = '';
+    let sentenceCount = 0;
+    for (const sentence of sentencesMatch) {
+      const trimmedSentence = sentence.trim();
+      if (trimmedSentence) {
+        excerpt += ' ' + trimmedSentence;
+        sentenceCount++;
+      }
+      if (sentenceCount >= 2) {
+        break;
+      }
+    }
+    return excerpt.trim();
+  }
+
+  // Return an empty string if no sentences found
+  return '';
+}
+
+
+
 async function generateImage(prompt) {
   const openAIPromptResponse = await openai.createImage({
     prompt: `Beautiful oil painting of ${prompt}`,
     n: 1,
-    size: "1024x1024",
+    // size: "1024x1024",
+    size: "512x512"
+    // size: "256x256"
   });
 
   return openAIPromptResponse.data.data[0].url;
@@ -114,17 +166,19 @@ async function downloadImageToBase64(url) {
 }
 
 async function generateContent(title) {
-  const promptContents = `Now write 2-3 paragraphs of no more than 80 words, structured with markdown, and including headings and paragraphs. The blog must be based on this title: ${title}`;
+  const promptContents = `Now write a compelling blog, structured with markdown, and including h2 and h3 and paragraphs. The blog must be based on this title: ${title}, a technical topic in philosophy. Don't be afraid to offer opinions.`;
 
   const openaiContentsResponse = await openai.createCompletion({
     model: "text-davinci-003",
     prompt: promptContents,
     temperature: 0.7,
-    max_tokens: 300,
+    max_tokens: 1000,
     top_p: 1.0,
   });
 
-  return openaiContentsResponse.data.choices[0].text;
+  const contentWithH1 = openaiContentsResponse.data.choices[0].text;
+  const contentWithoutH1 = contentWithH1.replace(/^#\s.*$/gm, '').trim();
+  return contentWithoutH1;
 }
 
 async function saveBlogPost(filePath, markdownString, outputTitle) {
@@ -220,14 +274,14 @@ async function generateAndSaveBlogPost() {
     const outputContent = await generateContent(outputTitle);
     console.log(`Output content is:`, outputContent);
 
+    const excerpt = await generateExcerpt(outputContent);
+    console.log(`Generated excerpt is:`, excerpt);
+
     const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
     console.log(`Slug is ${slug}`);
 
     // Save the blog post to the front-end repository
     const filePath = `posts/${slug}.md`;
-
-    // Generate an excerpt (optional)
-    const excerpt = 'Your generated excerpt goes here';
 
     // Download the image as a base64 encoded string
     const imageBase64 = await downloadImageToBase64(outputImage);
@@ -262,8 +316,9 @@ ${outputContent}
 // Call the function immediately when the server starts
 generateAndSaveBlogPost();
 
-// Set the daily cron job to run at 12 PM GMT
-cron.schedule('0 12 * * *', generateAndSaveBlogPost);
+// Set the cron job to run at 9 AM GMT every 2 days
+// cron.schedule('0 9 */2 * *', generateAndSaveBlogPost);
+cron.schedule('0 9 * * *', generateAndSaveBlogPost);
 
 // Start the Express server
 const port = process.env.PORT || 3001;
