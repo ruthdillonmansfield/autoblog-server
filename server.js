@@ -3,10 +3,10 @@ const cron  = require('node-cron');
 const express  = require('express');
 const cors  = require('cors');
 const dotenv = require('dotenv');
+const axios = require('axios');
 const { Octokit } = require('@octokit/core');
 
 dotenv.config();
-
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -34,7 +34,7 @@ app.get('/generate', async (req, res) => {
   }
 });
 
-async function fetchLast20Files() {
+async function fetchLast15Files() {
   const listFilesResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
     owner: repoOwner,
     repo: repoName,
@@ -42,11 +42,11 @@ async function fetchLast20Files() {
     ref: branch,
   });
 
-  return listFilesResponse.data.slice(-20);
+  return listFilesResponse.data.slice(-15);
 }
 
-async function fetchLast20Titles(last20Files) {
-  const last20TitlesPromises = last20Files.map(async (file) => {
+async function fetchLast15Titles(last15Files) {
+  const last15TitlesPromises = last15Files.map(async (file) => {
     const fileContentResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
       owner: repoOwner,
       repo: repoName,
@@ -63,20 +63,54 @@ async function fetchLast20Titles(last20Files) {
     return title;
   });
 
-  return await Promise.all(last20TitlesPromises);
+  return await Promise.all(last15TitlesPromises);
 }
 
 
-async function generateTitle() {
+async function generateTitle(last15Titles) {
+  const titlesList = last15Titles.join('\n');
+  const promptContents = `Generate a unique and compelling blog title within the broad topic of "Science" that is not a repeat of any of the following specific topics covered in these blogs:\n\n${titlesList}\n\nNew title: `;
+  console.log(promptContents);
+  
   const openAITitleResponse = await openai.createCompletion({
     model: "text-davinci-003",
-    prompt: 'Come up with one SEO-friendly blog title',
-    temperature: 0.9,
-    max_tokens: 750,
+    prompt: promptContents,
+    temperature: 0.8,
+    max_tokens: 50, // Reduced max_tokens
+    top_p: 1.0,
+  });  
+  const generatedText = openAITitleResponse.data.choices[0].text.trim();
+  const title = generatedText.replace(/^New title: /, '').trim(); // Remove the 'New title:' prompt from the generated text
+  return title;
+}
+
+
+async function generateDallePrompt(title) {
+  const openAIPromptResponse = await openai.createCompletion({
+    model: "text-davinci-003",
+    prompt: `I want to create a fantastic image for a blog post. Your job is to write a prompt for image generation AI tool Dall-E that will create an image suitable for a blog entitled "${title}"`,
+    temperature: 0.7,
+    max_tokens: 30,
     top_p: 1.0,
   });
 
-  return openAITitleResponse.data.choices[0].text.replace(/^[\n\s"]+|[\n\s"]+$/g, '');
+  return openAIPromptResponse.data.choices[0].text.trim();
+}
+
+async function generateImage(prompt) {
+  const openAIPromptResponse = await openai.createImage({
+    prompt: `Beautiful oil painting of ${prompt}`,
+    n: 1,
+    size: "1024x1024",
+  });
+
+  return openAIPromptResponse.data.data[0].url;
+}
+
+async function downloadImageToBase64(url) {
+  const response = await axios.get(url, { responseType: 'arraybuffer' });
+  const base64 = Buffer.from(response.data, 'binary').toString('base64');
+  return base64;
 }
 
 async function generateContent(title) {
@@ -86,7 +120,7 @@ async function generateContent(title) {
     model: "text-davinci-003",
     prompt: promptContents,
     temperature: 0.7,
-    max_tokens: 750,
+    max_tokens: 300,
     top_p: 1.0,
   });
 
@@ -129,20 +163,62 @@ async function saveBlogPost(filePath, markdownString, outputTitle) {
   await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', createOrUpdateFileRequest);
 }
 
+async function saveImage(filePath, base64EncodedContent) {
+  let sha;
+
+  filePath = `public/${filePath}`;
+
+  try {
+    const getFileResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner: repoOwner,
+      repo: repoName,
+      path: filePath,
+      ref: branch,
+    });
+
+    sha = getFileResponse.data.sha;
+  } catch (error) {
+    if (error.status !== 404) {
+      throw error;
+    }
+  }
+
+  const createOrUpdateImageRequest = {
+    owner: repoOwner,
+    repo: repoName,
+    path: filePath,
+    message: `Add new image for blog post`,
+    content: base64EncodedContent,
+    branch: branch,
+  };
+
+  if (sha) {
+    createOrUpdateImageRequest.sha = sha;
+  }
+
+  await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', createOrUpdateImageRequest);
+}
+
+
 async function generateAndSaveBlogPost() {
   try {
-    const last20Files = await fetchLast20Files();
-    console.log("Fetched 20 files.");
+    const last15Files = await fetchLast15Files();
+    console.log("Fetched 15 files.");
 
-    const last20Titles = await fetchLast20Titles(last20Files);
-    console.log("Fetched 20 titles: ", last20Titles);
+    const last15Titles = await fetchLast15Titles(last15Files);
+    console.log("Fetched 15 titles: ", last15Titles);
 
-    const outputTitle = await generateTitle();
+    const outputTitle = await generateTitle(last15Titles);
     console.log(`Output title is ${outputTitle}`);
+
+    const outputDallePrompt = await generateDallePrompt(outputTitle);
+    console.log(`Output DALL-E prompt is ${outputDallePrompt}`);
+
+    const outputImage = await generateImage(outputDallePrompt);
+    console.log(`Created DALL-E image`);
     
     const outputContent = await generateContent(outputTitle);
     console.log(`Output content is:`, outputContent);
-
 
     const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
     console.log(`Slug is ${slug}`);
@@ -153,17 +229,21 @@ async function generateAndSaveBlogPost() {
     // Generate an excerpt (optional)
     const excerpt = 'Your generated excerpt goes here';
 
-    // Set a cover image path (optional)
-    const coverImagePath = '/assets/blog/dynamic-routing/cover.jpg';
+    // Download the image as a base64 encoded string
+    const imageBase64 = await downloadImageToBase64(outputImage);
+
+    // Save the image to the /assets/blog/ folder with the slug
+    const imagePath = `assets/blog/${slug}.png`;
+    await saveImage(imagePath, imageBase64);
 
     // Create a Markdown string with the required keys and values
     const markdownString = `---
 title: "${outputTitle}"
 excerpt: "${excerpt}"
-coverImage: "${coverImagePath}"
+coverImage: "/${imagePath}"
 date: "${new Date().toISOString()}"
 ogImage:
-  url: "${coverImagePath}"
+  url: "/${imagePath}"
 ---
 
 ${outputContent}
