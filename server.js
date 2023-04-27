@@ -42,7 +42,6 @@ app.use(cors());
 app.get('/generate', async (req, res) => {
   try {
     await generateAndSaveBlogPost();
-    console.log("Success!")
     res.status(200).json({ message: 'Blog post generated and saved successfully.' });
   } catch (error) {
     console.error('Error while generating and saving the blog post:', error);
@@ -88,7 +87,7 @@ async function generateTitle() {
   const randomIndex2 = Math.floor(Math.random() * approaches.length);
   const approach = approaches[randomIndex2];
 
-  const promptContents = `Generate a unique, specific and compelling blog title within the broad topic of ${topic}. ${approach}. It should be less than 10 words long.`;
+  const promptContents = `Generate a unique, specific and compelling blog title within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;
   console.log(promptContents);
   
   const openAITitleResponse = await openai.createCompletion({
@@ -262,10 +261,10 @@ async function generateAndSaveBlogPost() {
     // console.log("Fetched 15 titles: ", last15Titles);
 
     const outputTitle = await generateTitle();
-    console.log(`Output title is ${outputTitle}`);
+    console.log(`\nOutput title is ${outputTitle}`);
 
     const outputDallePrompt = await generateDallePrompt(outputTitle);
-    console.log(`Output DALL-E prompt is ${outputDallePrompt}`);
+    console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
 
 // outputDallePrompt is contingent upon outputTitle
 // outputImage  is contingent upon outputDallePrompt
@@ -280,12 +279,14 @@ async function generateAndSaveBlogPost() {
       generateImage(outputDallePrompt),
       generateContent(outputTitle),
     ]);
+    console.log(outputContent);
+    
 
     const excerpt = generateExcerpt(outputContent);
-    console.log(`Generated excerpt is:`, excerpt);
+    console.log(`\nGenerated excerpt is:`, excerpt);
 
     const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
-    console.log(`Slug is ${slug}`);
+    console.log(`\nSlug is ${slug}`);
 
     // Save the blog post to the front-end repository
     const filePath = `posts/${slug}.md`;
