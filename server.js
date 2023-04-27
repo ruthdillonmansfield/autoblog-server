@@ -82,13 +82,12 @@ async function fetchLast15Titles(last15Files) {
   return await Promise.all(last15TitlesPromises);
 }
 
-async function generateTitle(last15Titles) {
+async function generateTitle() {
   const randomIndex = Math.floor(Math.random() * topics.length);
   const topic = topics[randomIndex];
   const randomIndex2 = Math.floor(Math.random() * approaches.length);
   const approach = approaches[randomIndex2];
-  
-  const titlesList = last15Titles.join('\n');
+
   const promptContents = `Generate a unique, specific and compelling blog title within the broad topic of ${topic}. ${approach}. It should be less than 10 words long.`;
   console.log(promptContents);
   
@@ -118,7 +117,7 @@ async function generateDallePrompt(title) {
   return openAIPromptResponse.data.choices[0].text.trim();
 }
 
-async function generateExcerpt(content) {
+function generateExcerpt(content) {
   // Remove headings
   const contentWithoutHeadings = content.replace(/^#+.+\n/gm, '');
 
@@ -256,25 +255,33 @@ async function saveImage(filePath, base64EncodedContent) {
 
 async function generateAndSaveBlogPost() {
   try {
-    const last15Files = await fetchLast15Files();
-    console.log("Fetched 15 files.");
+    // const last15Files = await fetchLast15Files();
+    // console.log("Fetched 15 files.");
 
-    const last15Titles = await fetchLast15Titles(last15Files);
-    console.log("Fetched 15 titles: ", last15Titles);
+    // const last15Titles = await fetchLast15Titles(last15Files);
+    // console.log("Fetched 15 titles: ", last15Titles);
 
-    const outputTitle = await generateTitle(last15Titles);
+    const outputTitle = await generateTitle();
     console.log(`Output title is ${outputTitle}`);
 
     const outputDallePrompt = await generateDallePrompt(outputTitle);
     console.log(`Output DALL-E prompt is ${outputDallePrompt}`);
 
-    const outputImage = await generateImage(outputDallePrompt);
-    console.log(`Created DALL-E image`);
-    
-    const outputContent = await generateContent(outputTitle);
-    console.log(`Output content is:`, outputContent);
+// outputDallePrompt is contingent upon outputTitle
+// outputImage  is contingent upon outputDallePrompt
+// outputContent is contingent upon outputTitle
+// excerpt is contingent upon outputContent
+// slug is contingent upon outputTitle
+// filePath is contingent upon slug
+// imageBase64 is contingent upon outputImage
+// saveImage is contingent upon imageBase64
 
-    const excerpt = await generateExcerpt(outputContent);
+    const [outputImage, outputContent] = await Promise.all([
+      generateImage(outputDallePrompt),
+      generateContent(outputTitle),
+    ]);
+
+    const excerpt = generateExcerpt(outputContent);
     console.log(`Generated excerpt is:`, excerpt);
 
     const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
@@ -288,7 +295,6 @@ async function generateAndSaveBlogPost() {
 
     // Save the image to the /assets/blog/ folder with the slug
     const imagePath = `assets/blog/${slug}.png`;
-    await saveImage(imagePath, imageBase64);
 
     // Create a Markdown string with the required keys and values
     const markdownString = `---
@@ -303,7 +309,10 @@ ogImage:
 ${outputContent}
 `;
 
-    await saveBlogPost(filePath, markdownString);
+    await Promise.all([
+      saveImage(imagePath, imageBase64),
+      saveBlogPost(filePath, markdownString),
+    ]);
 
     console.log(`Successfully created/updated ${slug}.md in the ${repoName} repository.`);
 
