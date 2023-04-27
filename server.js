@@ -107,7 +107,7 @@ async function generateTitle() {
 async function generateDallePrompt(title) {
   const openAIPromptResponse = await openai.createCompletion({
     model: "text-davinci-003",
-    prompt: `I want to create a fantastic image for a blog post. Your job is to imagine a relevant object or scene and describe it. It must be suitable for a blog entitled "${title}".`,
+    prompt: `I want to create a fantastic image for a blog post called ${title}. Your job is to imagine a simple, relevant image and describe it in less than 10 words.`,
     temperature: 0.7,
     max_tokens: 30,
     top_p: 1.0,
@@ -121,7 +121,7 @@ function generateExcerpt(content) {
   const contentWithoutHeadings = content.replace(/^#+.+\n/gm, '');
 
   // Match the first two sentences
-  const sentencesMatch = contentWithoutHeadings.match(/(?:^|\.|\?|\!)\s*([^.?!]+[.?!])/g);
+  const sentencesMatch = contentWithoutHeadings.match(/(?:^|(?<=[.?!]))\s*([^.?!]+[.?!])/g);
 
   if (sentencesMatch) {
     let excerpt = '';
@@ -144,10 +144,9 @@ function generateExcerpt(content) {
 }
 
 
-
 async function generateImage(prompt) {
   const openAIPromptResponse = await openai.createImage({
-    prompt: `Beautiful oil painting of ${prompt}`,
+    prompt: `Oil painting of ${prompt}`,
     n: 1,
     // size: "1024x1024",
     size: "512x512"
