@@ -322,7 +322,7 @@ ${outputContent}
 }
 
 // Call the function immediately when the server starts
-generateAndSaveBlogPost();
+// generateAndSaveBlogPost();
 
 // Set the cron job to run at 9 AM GMT every 2 days
 // cron.schedule('0 9 */2 * *', generateAndSaveBlogPost);
