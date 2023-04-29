@@ -99,8 +99,9 @@ async function generateTitle() {
   });
   const generatedText = openAITitleResponse.data.choices[0].text.trim();
   const title = generatedText.replace(/^New title: /, '').trim(); // Remove the 'New title:' prompt from the generated text
-  const cleanTitle = title.replace(/["]/g, ''); // Remove all quote marks
-  return cleanTitle;
+  const cleanTitle = title.replace(/["]/g, '');
+  const firstSentence = cleanTitle.match(/^.*?[\.?]\s/)[0];
+  return firstSentence;
 }
 
 
@@ -264,15 +265,6 @@ async function generateAndSaveBlogPost() {
 
     const outputDallePrompt = await generateDallePrompt(outputTitle);
     console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
-
-// outputDallePrompt is contingent upon outputTitle
-// outputImage  is contingent upon outputDallePrompt
-// outputContent is contingent upon outputTitle
-// excerpt is contingent upon outputContent
-// slug is contingent upon outputTitle
-// filePath is contingent upon slug
-// imageBase64 is contingent upon outputImage
-// saveImage is contingent upon imageBase64
 
     const [outputImage, outputContent] = await Promise.all([
       generateImage(outputDallePrompt),
