@@ -98,7 +98,6 @@ async function generateTitle() {
     top_p: 1.0,
   });
   const generatedText = openAITitleResponse.data.choices[0].text.trim();
-  const title = generatedText.replace(/^New title: /, '').trim(); // Remove the 'New title:' prompt from the generated text
   const cleanTitle = title.replace(/["]/g, '');
   const firstSentence = cleanTitle.match(/^.*?[\.?]\s/)[0];
   return firstSentence;
