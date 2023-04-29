@@ -99,7 +99,7 @@ async function generateTitle() {
   });
   const generatedText = openAITitleResponse.data.choices[0].text.trim();
   const cleanTitle = generatedText.replace(/["]/g, '');
-  const firstSentence = cleanTitle.match(/^.*?[\.?]\s/)[0];
+  const firstSentence = cleanTitle.match(/^.*?[\.?]\s/)?.[0] ?? cleanTitle;
   return firstSentence;
 }
 
