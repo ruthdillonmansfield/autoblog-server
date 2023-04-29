@@ -98,7 +98,7 @@ async function generateTitle() {
     top_p: 1.0,
   });
   const generatedText = openAITitleResponse.data.choices[0].text.trim();
-  const cleanTitle = title.replace(/["]/g, '');
+  const cleanTitle = generatedText.replace(/["]/g, '');
   const firstSentence = cleanTitle.match(/^.*?[\.?]\s/)[0];
   return firstSentence;
 }
