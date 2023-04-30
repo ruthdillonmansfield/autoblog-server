@@ -87,7 +87,7 @@ async function generateTitle() {
   const randomIndex2 = Math.floor(Math.random() * approaches.length);
   const approach = approaches[randomIndex2];
 
-  const promptContents = `Generate a unique, specific and compelling blog title within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;
+  const promptContents = `Generate a unique, specific and compelling blog title on a subtopic within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;
   console.log(promptContents);
   
   const openAITitleResponse = await openai.createCompletion({
@@ -163,13 +163,13 @@ async function downloadImageToBase64(url) {
 }
 
 async function generateContent(title) {
-  const promptContents = `Now write a compelling blog, structured with markdown, and including h2 and h3 and paragraphs. The blog must be based on this title: ${title}, a technical topic in philosophy. Don't be afraid to offer opinions.`;
+  const promptContents = `Now write a compelling blog, structured with markdown, and including h2 and h3 and paragraphs. The blog must be based on this title: ${title}, a technical topic in philosophy. Don't be afraid to offer different points of view and opinions.`;
 
   const openaiContentsResponse = await openai.createCompletion({
     model: "text-davinci-003",
     prompt: promptContents,
     temperature: 0.7,
-    max_tokens: 1000,
+    max_tokens: 1500,
     top_p: 1.0,
   });
 
