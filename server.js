@@ -87,7 +87,7 @@ async function generateTitle() {
   const randomIndex2 = Math.floor(Math.random() * approaches.length);
   const approach = approaches[randomIndex2];
 
-  const promptContents = `Generate a unique, specific and compelling blog title on a subtopic within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;
+  const promptContents = `Generate a unique, specific and compelling blog title on a subtopic within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;  
   console.log(promptContents);
   
   const openAITitleResponse = await openai.createCompletion({
@@ -152,7 +152,7 @@ async function generateImage(prompt) {
     size: "512x512"
     // size: "256x256"
   });
-
+  console.log("created image");
   return openAIPromptResponse.data.data[0].url;
 }
 
@@ -160,6 +160,15 @@ async function downloadImageToBase64(url) {
   const response = await axios.get(url, { responseType: 'arraybuffer' });
   const base64 = Buffer.from(response.data, 'binary').toString('base64');
   return base64;
+}
+
+async function generateImageAndDownload(outputDallePrompt, imagePath) {
+  const outputImage = await generateImage(outputDallePrompt);
+  const imageBase64 = await downloadImageToBase64(outputImage);
+  console.log("Downloaded image");
+  await saveImage(imagePath, imageBase64)
+  console.log("Saved image");
+  return imageBase64;
 }
 
 async function generateContent(title) {
@@ -175,6 +184,7 @@ async function generateContent(title) {
 
   const contentWithH1 = openaiContentsResponse.data.choices[0].text;
   const contentWithoutH1 = contentWithH1.replace(/^#\s.*$/gm, '').trim();
+  console.log("created content: ", contentWithoutH1);
   return contentWithoutH1;
 }
 
@@ -253,39 +263,30 @@ async function saveImage(filePath, base64EncodedContent) {
 
 async function generateAndSaveBlogPost() {
   try {
-    // const last15Files = await fetchLast15Files();
-    // console.log("Fetched 15 files.");
-
-    // const last15Titles = await fetchLast15Titles(last15Files);
-    // console.log("Fetched 15 titles: ", last15Titles);
 
     const outputTitle = await generateTitle();
     console.log(`\nOutput title is ${outputTitle}`);
-
+    
     const outputDallePrompt = await generateDallePrompt(outputTitle);
     console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
 
+    const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
+    console.log(`\nSlug is ${slug}`);
+    
+    // Save the blog post to the front-end repository
+    const filePath = `posts/${slug}.md`;
+    
+    // Save the image to the /assets/blog/ folder with the slug
+    const imagePath = `assets/blog/${slug}.png`;
+
     const [outputImage, outputContent] = await Promise.all([
-      generateImage(outputDallePrompt),
+      generateImageAndDownload(outputDallePrompt, imagePath),
       generateContent(outputTitle),
     ]);
     console.log(outputContent);
-    
 
     const excerpt = generateExcerpt(outputContent);
     console.log(`\nGenerated excerpt is:`, excerpt);
-
-    const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
-    console.log(`\nSlug is ${slug}`);
-
-    // Save the blog post to the front-end repository
-    const filePath = `posts/${slug}.md`;
-
-    // Download the image as a base64 encoded string
-    const imageBase64 = await downloadImageToBase64(outputImage);
-
-    // Save the image to the /assets/blog/ folder with the slug
-    const imagePath = `assets/blog/${slug}.png`;
 
     // Create a Markdown string with the required keys and values
     const markdownString = `---
@@ -300,10 +301,7 @@ ogImage:
 ${outputContent}
 `;
 
-    await Promise.all([
-      saveImage(imagePath, imageBase64),
-      saveBlogPost(filePath, markdownString),
-    ]);
+    await saveBlogPost(filePath, markdownString)
 
     console.log(`Successfully created/updated ${slug}.md in the ${repoName} repository.`);
 
