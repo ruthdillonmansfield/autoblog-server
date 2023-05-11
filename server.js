@@ -88,7 +88,6 @@ async function generateTitle() {
   const approach = approaches[randomIndex2];
 
   const promptContents = `Generate a unique, specific and compelling blog title on a subtopic within the broad topic of ${topic}. ${approach}. It should be 6-10 words long.`;  
-  console.log(promptContents);
   
   const openAITitleResponse = await openai.createCompletion({
     model: "text-davinci-003",
@@ -162,7 +161,9 @@ async function downloadImageToBase64(url) {
   return base64;
 }
 
-async function generateImageAndDownload(outputDallePrompt, imagePath) {
+async function generateImageAndDownload(outputDallePrompt, imagePath, outputTitle) {
+  const outputDallePrompt = await generateDallePrompt(outputTitle);
+  console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
   const outputImage = await generateImage(outputDallePrompt);
   const imageBase64 = await downloadImageToBase64(outputImage);
   console.log("Downloaded image");
@@ -266,9 +267,6 @@ async function generateAndSaveBlogPost() {
 
     const outputTitle = await generateTitle();
     console.log(`\nOutput title is ${outputTitle}`);
-    
-    const outputDallePrompt = await generateDallePrompt(outputTitle);
-    console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
 
     const slug = outputTitle.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, "-");
     console.log(`\nSlug is ${slug}`);
@@ -280,7 +278,7 @@ async function generateAndSaveBlogPost() {
     const imagePath = `assets/blog/${slug}.png`;
 
     const [outputImage, outputContent] = await Promise.all([
-      generateImageAndDownload(outputDallePrompt, imagePath),
+      generateImageAndDownload(outputDallePrompt, imagePath, outputTitle),
       generateContent(outputTitle),
     ]);
     console.log(outputContent);
