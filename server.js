@@ -179,7 +179,7 @@ async function generateContent(title) {
     model: "text-davinci-003",
     prompt: promptContents,
     temperature: 0.7,
-    max_tokens: 1000,
+    max_tokens: 1250,
     top_p: 1.0,
   });
 
