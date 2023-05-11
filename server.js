@@ -161,7 +161,7 @@ async function downloadImageToBase64(url) {
   return base64;
 }
 
-async function generateImageAndDownload(outputDallePrompt, imagePath, outputTitle) {
+async function generateImageAndDownload(imagePath, outputTitle) {
   const outputDallePrompt = await generateDallePrompt(outputTitle);
   console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
   const outputImage = await generateImage(outputDallePrompt);
@@ -278,7 +278,7 @@ async function generateAndSaveBlogPost() {
     const imagePath = `assets/blog/${slug}.png`;
 
     const [outputImage, outputContent] = await Promise.all([
-      generateImageAndDownload(outputDallePrompt, imagePath, outputTitle),
+      generateImageAndDownload(imagePath, outputTitle),
       generateContent(outputTitle),
     ]);
     console.log(outputContent);
