@@ -163,7 +163,7 @@ async function downloadImageToBase64(url) {
 
 async function generateImageAndDownload(imagePath, outputTitle) {
   const outputDallePrompt = await generateDallePrompt(outputTitle);
-  console.log(`\nOutput DALL-E prompt is ${outputDallePrompt}\n`);
+  console.log(`Output DALL-E prompt is ${outputDallePrompt}`);
   const outputImage = await generateImage(outputDallePrompt);
   const imageBase64 = await downloadImageToBase64(outputImage);
   console.log("Downloaded image");
@@ -179,7 +179,7 @@ async function generateContent(title) {
     model: "text-davinci-003",
     prompt: promptContents,
     temperature: 0.7,
-    max_tokens: 1250,
+    max_tokens: 1000,
     top_p: 1.0,
   });
 
